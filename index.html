@@ -1,0 +1,1377 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#07111f">
+  <title>طريق السرعة</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f4f7fb;
+      --muted: #9eafc3;
+      --accent: #54e1be;
+      --accent-strong: #1ec79e;
+      --danger: #ff6b7d;
+      --panel: rgba(10, 22, 38, 0.86);
+      --panel-border: rgba(255, 255, 255, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #07111f;
+    }
+
+    body {
+      font-family: Tahoma, "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      overscroll-behavior: none;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .game-shell {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 480px;
+      overflow: hidden;
+      isolation: isolate;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(38, 90, 123, 0.35), transparent 44%),
+        linear-gradient(180deg, #0b1e2e 0%, #07111f 100%);
+      touch-action: none;
+    }
+
+    .game-shell::after {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      content: "";
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.025), transparent 14%, transparent 86%, rgba(255, 255, 255, 0.025));
+    }
+
+    #gameCanvas {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .hud {
+      position: absolute;
+      top: max(18px, env(safe-area-inset-top));
+      left: 50%;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      width: min(92vw, 620px);
+      padding: 10px;
+      border: 1px solid var(--panel-border);
+      border-radius: 22px;
+      background: rgba(8, 19, 33, 0.66);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(14px);
+      transform: translateX(-50%);
+    }
+
+    .stat {
+      min-width: 0;
+      padding: 2px 12px;
+      text-align: center;
+    }
+
+    .stat + .stat {
+      border-inline-start: 1px solid rgba(255, 255, 255, 0.11);
+    }
+
+    .stat-label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .stat-value {
+      display: block;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: clamp(1.05rem, 4vw, 1.45rem);
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #speedMultiplier {
+      color: var(--accent);
+    }
+
+    .brand {
+      position: absolute;
+      top: max(164px, calc(env(safe-area-inset-top) + 150px));
+      left: 50%;
+      z-index: 2;
+      color: rgba(244, 247, 251, 0.62);
+      font-size: 0.76rem;
+      font-weight: 900;
+      letter-spacing: 0.2em;
+      pointer-events: none;
+      transform: translateX(-50%);
+    }
+
+    .power-status {
+      position: absolute;
+      top: max(106px, calc(env(safe-area-inset-top) + 90px));
+      left: 50%;
+      z-index: 3;
+      display: flex;
+      justify-content: center;
+      gap: 7px;
+      width: min(92vw, 620px);
+      pointer-events: none;
+      transform: translateX(-50%);
+    }
+
+    .status-chip {
+      min-width: 0;
+      padding: 6px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(8, 19, 33, 0.58);
+      font-size: 0.68rem;
+      font-weight: 800;
+      white-space: nowrap;
+      backdrop-filter: blur(10px);
+    }
+
+    .status-chip.is-active {
+      border-color: rgba(84, 225, 190, 0.55);
+      color: var(--accent);
+      background: rgba(30, 199, 158, 0.15);
+    }
+
+    .status-chip.slow-is-active {
+      border-color: rgba(180, 146, 255, 0.6);
+      color: #c9b4ff;
+      background: rgba(157, 140, 255, 0.16);
+    }
+
+    .controls {
+      position: absolute;
+      right: 0;
+      bottom: max(20px, env(safe-area-inset-bottom));
+      left: 0;
+      z-index: 3;
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      padding: 0 20px;
+    }
+
+    .control-button {
+      display: grid;
+      place-items: center;
+      width: min(29vw, 132px);
+      height: min(19vw, 82px);
+      min-height: 64px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 24px;
+      color: var(--ink);
+      background: rgba(10, 23, 39, 0.76);
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      cursor: pointer;
+      font-size: clamp(2rem, 8vw, 3rem);
+      line-height: 1;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+    }
+
+    .control-button:active {
+      border-color: rgba(84, 225, 190, 0.7);
+      background: rgba(30, 199, 158, 0.27);
+      transform: translateY(3px) scale(0.97);
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(3, 10, 19, 0.52);
+      backdrop-filter: blur(7px);
+      opacity: 1;
+      transition: opacity 220ms ease, visibility 220ms ease;
+    }
+
+    .overlay.is-hidden {
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .overlay-card {
+      width: min(92vw, 430px);
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      padding: clamp(26px, 7vw, 44px) clamp(22px, 7vw, 48px);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 32px;
+      text-align: center;
+      background:
+        linear-gradient(145deg, rgba(21, 43, 62, 0.95), rgba(7, 18, 31, 0.96));
+      box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
+    }
+
+    .setup {
+      display: grid;
+      gap: 12px;
+      margin: 22px 0 16px;
+      text-align: right;
+    }
+
+    .setup label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .name-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .setup input,
+    .setup select {
+      width: 100%;
+      min-height: 44px;
+      padding: 8px 11px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      outline: none;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.07);
+      font-size: 0.9rem;
+    }
+
+    .setup input:focus,
+    .setup select:focus {
+      border-color: var(--accent);
+    }
+
+    .setup option {
+      color: #0b1b2c;
+      background: #ffffff;
+    }
+
+    .is-hidden {
+      display: none !important;
+    }
+
+    .leaderboard {
+      margin: 18px 0 22px;
+      padding: 15px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 18px;
+      text-align: right;
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .leaderboard-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 9px;
+      color: #ffffff;
+      font-size: 0.86rem;
+      font-weight: 900;
+    }
+
+    .leaderboard-title small {
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 700;
+    }
+
+    .leaderboard-list {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .leaderboard-list li {
+      display: grid;
+      grid-template-columns: 24px 1fr auto;
+      gap: 6px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .leaderboard-list li strong {
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 0.82rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .leaderboard-list li span:last-child {
+      color: var(--accent);
+      font-weight: 900;
+    }
+
+    .leaderboard-empty {
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-align: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 14px;
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+    }
+
+    .eyebrow::before {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 16px var(--accent);
+      content: "";
+    }
+
+    h1,
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h1,
+    h2 {
+      color: #ffffff;
+      font-size: clamp(2rem, 10vw, 3.4rem);
+      font-weight: 950;
+      letter-spacing: -0.06em;
+      line-height: 1;
+    }
+
+    .overlay-card p {
+      margin: 18px 0 26px;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.8;
+    }
+
+    .turn-message {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .hint {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 18px;
+      color: rgba(158, 175, 195, 0.78);
+      font-size: 0.78rem;
+    }
+
+    .key {
+      display: inline-block;
+      min-width: 26px;
+      padding: 2px 7px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 7px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .primary-button {
+      width: 100%;
+      min-height: 58px;
+      border: 0;
+      border-radius: 18px;
+      color: #05251d;
+      background: linear-gradient(135deg, #75f0d0, #27cfa7);
+      box-shadow: 0 12px 28px rgba(30, 199, 158, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+      font-size: 1.08rem;
+      font-weight: 950;
+      transition: transform 120ms ease, filter 120ms ease;
+    }
+
+    .primary-button:hover {
+      filter: brightness(1.08);
+    }
+
+    .primary-button:active {
+      transform: translateY(2px);
+    }
+
+    .result {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 24px 0;
+    }
+
+    .result-item {
+      padding: 14px 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .result-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+
+    .result-item strong {
+      display: block;
+      margin-top: 5px;
+      color: #ffffff;
+      font-size: 1.35rem;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-height: 620px) {
+      .brand {
+        display: none;
+      }
+
+      .power-status {
+        display: none;
+      }
+
+      .controls {
+        bottom: 12px;
+      }
+
+      .control-button {
+        height: 58px;
+        min-height: 58px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="game-shell" id="gameShell">
+    <canvas id="gameCanvas" aria-label="لعبة قيادة"></canvas>
+
+    <section class="hud" aria-label="إحصاءات الجولة">
+      <div class="stat">
+        <span class="stat-label">المسافة</span>
+        <strong class="stat-value" id="distanceValue">٠ م</strong>
+      </div>
+      <div class="stat">
+        <span class="stat-label">مضاعف السرعة</span>
+        <strong class="stat-value" id="speedMultiplier">×١٫٠٠</strong>
+      </div>
+      <div class="stat">
+        <span class="stat-label">أفضل نتيجة</span>
+        <strong class="stat-value" id="bestValue">٠ م</strong>
+      </div>
+    </section>
+
+    <div class="brand" aria-hidden="true">طريق السرعة</div>
+
+    <div class="power-status" aria-live="polite">
+      <span class="status-chip" id="pointsStatus">النقاط: ٠</span>
+      <span class="status-chip" id="shieldStatus">الدرع: غير نشط</span>
+      <span class="status-chip" id="slowStatus">التبطيء: غير نشط</span>
+    </div>
+
+    <div class="controls" aria-label="أزرار التحكم">
+      <button class="control-button" id="rightButton" type="button" aria-label="تحرك يميناً">→</button>
+      <button class="control-button" id="leftButton" type="button" aria-label="تحرك يساراً">←</button>
+    </div>
+
+    <section class="overlay" id="startOverlay" aria-labelledby="startTitle">
+      <div class="overlay-card">
+        <div class="eyebrow">تحدّ السرعة</div>
+        <h1 id="startTitle">طريق السرعة</h1>
+        <p>بدّل مسارك، تفادَ السيارات، وواصل القيادة لأبعد مسافة ممكنة.</p>
+        <div class="setup">
+          <label for="modeSelect">
+            وضع اللعب
+            <select id="modeSelect">
+              <option value="single">لاعب واحد</option>
+              <option value="two">لاعبان بالتناوب</option>
+            </select>
+          </label>
+          <div class="name-grid">
+            <label for="playerOneName">
+              اللاعب الأول
+              <input id="playerOneName" type="text" maxlength="18" autocomplete="off" placeholder="اكتب الاسم">
+            </label>
+            <label for="playerTwoName" id="playerTwoField" class="is-hidden">
+              اللاعب الثاني
+              <input id="playerTwoName" type="text" maxlength="18" autocomplete="off" placeholder="اكتب الاسم">
+            </label>
+          </div>
+        </div>
+        <button class="primary-button" id="startButton" type="button">ابدأ الجولة</button>
+        <div class="hint" aria-hidden="true">
+          <span class="key">←</span>
+          <span class="key">→</span>
+          <span>أو اسحب على الشاشة</span>
+        </div>
+        <div class="leaderboard">
+          <div class="leaderboard-title">
+            <span>أفضل النتائج</span>
+            <small>محفوظة محلياً</small>
+          </div>
+          <ol class="leaderboard-list" id="leaderboardList"></ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="overlay is-hidden" id="endOverlay" aria-labelledby="endTitle">
+      <div class="overlay-card">
+        <div class="eyebrow" id="endEyebrow">انتهت الجولة</div>
+        <h2 id="endTitle">رحلة قوية</h2>
+        <p class="turn-message" id="endMessage"></p>
+        <div class="result">
+          <div class="result-item">
+            <span>نتيجتك</span>
+            <strong id="finalDistance">٠ م</strong>
+          </div>
+          <div class="result-item">
+            <span>أفضل نتيجة</span>
+            <strong id="finalBest">٠ م</strong>
+          </div>
+        </div>
+        <div class="leaderboard">
+          <div class="leaderboard-title">
+            <span>أفضل النتائج</span>
+            <small>أعلى ٥ نتائج</small>
+          </div>
+          <ol class="leaderboard-list" id="endLeaderboardList"></ol>
+        </div>
+        <button class="primary-button" id="restartButton" type="button">جولة جديدة</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    "use strict";
+
+    // Tune the game from this section.
+    const INITIAL_SPEED = 310;
+    const ACCELERATION_RATE = 24;
+    const MAX_SPEED = 920;
+    const ROW_SPACING = 470;
+    const LANE_COUNT = 3;
+    const ACTIVE_LANE_COUNT = Math.max(2, Math.floor(LANE_COUNT));
+
+    const MAX_DELTA_SECONDS = 0.05;
+    const DISTANCE_SCALE = 0.032;
+    const LANE_CHANGE_RESPONSE = 13;
+    const ROAD_WIDTH_RATIO = 0.82;
+    const MAX_ROAD_WIDTH = 560;
+    const PLAYER_WIDTH = 46;
+    const PLAYER_HEIGHT = 78;
+    const OBSTACLE_WIDTH = 48;
+    const OBSTACLE_HEIGHT = 82;
+    const PICKUP_RADIUS = 13;
+    const POWERUP_DURATION = 3;
+    const SLOW_FACTOR = 0.42;
+    const LEADERBOARD_KEY = "speed-road-leaderboard";
+    const requestFrame = window.requestAnimationFrame
+      || window.webkitRequestAnimationFrame
+      || ((callback) => window.setTimeout(() => callback(Date.now()), 16));
+    const cancelFrame = window.cancelAnimationFrame
+      || window.webkitCancelAnimationFrame
+      || window.clearTimeout;
+
+    const canvas = document.getElementById("gameCanvas");
+    const context = canvas.getContext("2d");
+    const gameShell = document.getElementById("gameShell");
+    const startOverlay = document.getElementById("startOverlay");
+    const endOverlay = document.getElementById("endOverlay");
+    const modeSelect = document.getElementById("modeSelect");
+    const playerOneName = document.getElementById("playerOneName");
+    const playerTwoName = document.getElementById("playerTwoName");
+    const playerTwoField = document.getElementById("playerTwoField");
+    const startButton = document.getElementById("startButton");
+    const restartButton = document.getElementById("restartButton");
+    const rightButton = document.getElementById("rightButton");
+    const leftButton = document.getElementById("leftButton");
+    const distanceValue = document.getElementById("distanceValue");
+    const speedMultiplier = document.getElementById("speedMultiplier");
+    const bestValue = document.getElementById("bestValue");
+    const pointsStatus = document.getElementById("pointsStatus");
+    const shieldStatus = document.getElementById("shieldStatus");
+    const slowStatus = document.getElementById("slowStatus");
+    const finalDistance = document.getElementById("finalDistance");
+    const finalBest = document.getElementById("finalBest");
+    const endEyebrow = document.getElementById("endEyebrow");
+    const endTitle = document.getElementById("endTitle");
+    const endMessage = document.getElementById("endMessage");
+    const leaderboardList = document.getElementById("leaderboardList");
+    const endLeaderboardList = document.getElementById("endLeaderboardList");
+
+    let viewportWidth = 0;
+    let viewportHeight = 0;
+    let deviceScale = 1;
+    let roadLeft = 0;
+    let roadWidth = 0;
+    let laneWidth = 0;
+    let animationFrameId = null;
+    let isRunning = false;
+    let lastFrameTime = null;
+    let speed = INITIAL_SPEED;
+    let distance = 0;
+    let points = 0;
+    let bestScore = 0;
+    let spawnDistance = 0;
+    let roadLineOffset = 0;
+    let shieldActive = false;
+    let slowTimeRemaining = 0;
+    let player;
+    let obstacles = [];
+    let pointItems = [];
+    let powerups = [];
+    let touchStartX = null;
+    let touchStartY = null;
+    let audioContext = null;
+    let leaderboard = readLeaderboard();
+    bestScore = leaderboard.length > 0 ? leaderboard[0].score : 0;
+    let currentTurn = 1;
+    let twoPlayerMode = false;
+    let playerNames = {
+      one: "اللاعب الأول",
+      two: "اللاعب الثاني"
+    };
+    let turnScores = [];
+
+    function readLeaderboard() {
+      try {
+        const storedEntries = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || "[]");
+        if (!Array.isArray(storedEntries)) {
+          return [];
+        }
+        return storedEntries
+          .filter((entry) => entry && typeof entry.name === "string" && Number.isFinite(Number(entry.score)))
+          .map((entry) => ({
+            name: entry.name.trim().slice(0, 18) || "لاعب",
+            score: Math.max(0, Math.floor(Number(entry.score)))
+          }))
+          .sort((first, second) => second.score - first.score)
+          .slice(0, 5);
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function saveLeaderboard() {
+      try {
+        localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard));
+      } catch (error) {
+        return;
+      }
+    }
+
+    function saveScore(name, score) {
+      leaderboard.push({
+        name: name.trim().slice(0, 18) || `لاعب ${currentTurn}`,
+        score: Math.max(0, Math.floor(score))
+      });
+      leaderboard.sort((first, second) => second.score - first.score);
+      leaderboard = leaderboard.slice(0, 5);
+      bestScore = leaderboard.length > 0 ? leaderboard[0].score : 0;
+      saveLeaderboard();
+      renderLeaderboards();
+    }
+
+    function renderLeaderboards() {
+      const lists = [leaderboardList, endLeaderboardList];
+      for (const list of lists) {
+        list.textContent = "";
+        if (leaderboard.length === 0) {
+          const emptyItem = document.createElement("li");
+          emptyItem.className = "leaderboard-empty";
+          emptyItem.textContent = "لا توجد نتائج بعد";
+          list.appendChild(emptyItem);
+          continue;
+        }
+        leaderboard.forEach((entry, index) => {
+          const item = document.createElement("li");
+          const rank = document.createElement("span");
+          const name = document.createElement("strong");
+          const score = document.createElement("span");
+          rank.textContent = `${toArabicDigits(index + 1)}.`;
+          name.textContent = entry.name;
+          score.textContent = formatDistance(entry.score);
+          item.append(rank, name, score);
+          list.appendChild(item);
+        });
+      }
+    }
+
+    function getCurrentPlayerName() {
+      return currentTurn === 1 ? playerNames.one : playerNames.two;
+    }
+
+    function toArabicDigits(value) {
+      return String(value).replace(/\d/g, (digit) => "٠١٢٣٤٥٦٧٨٩"[digit]);
+    }
+
+    function formatDistance(value) {
+      return `${toArabicDigits(Math.max(0, Math.floor(value)))} م`;
+    }
+
+    function formatMultiplier(value) {
+      return `×${toArabicDigits(value.toFixed(2).replace(".", "٫"))}`;
+    }
+
+    function updateHud() {
+      const multiplierRange = Math.max(1, MAX_SPEED - INITIAL_SPEED);
+      const multiplier = 1 + ((speed - INITIAL_SPEED) / multiplierRange) * 2.2;
+      distanceValue.textContent = formatDistance(distance);
+      speedMultiplier.textContent = formatMultiplier(multiplier);
+      bestValue.textContent = formatDistance(bestScore);
+      pointsStatus.textContent = `النقاط: ${toArabicDigits(points)}`;
+      shieldStatus.textContent = shieldActive ? "الدرع: نشط" : "الدرع: غير نشط";
+      slowStatus.textContent = slowTimeRemaining > 0
+        ? `التبطيء: ${toArabicDigits(slowTimeRemaining.toFixed(1).replace(".", "٫"))}ث`
+        : "التبطيء: غير نشط";
+      shieldStatus.classList.toggle("is-active", shieldActive);
+      slowStatus.classList.toggle("slow-is-active", slowTimeRemaining > 0);
+    }
+
+    function resizeCanvas() {
+      viewportWidth = gameShell.clientWidth;
+      viewportHeight = gameShell.clientHeight;
+      deviceScale = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.max(1, Math.floor(viewportWidth * deviceScale));
+      canvas.height = Math.max(1, Math.floor(viewportHeight * deviceScale));
+      canvas.style.width = `${viewportWidth}px`;
+      canvas.style.height = `${viewportHeight}px`;
+      context.setTransform(deviceScale, 0, 0, deviceScale, 0, 0);
+      roadWidth = Math.min(viewportWidth * ROAD_WIDTH_RATIO, MAX_ROAD_WIDTH);
+      roadWidth = Math.max(220, roadWidth);
+      roadLeft = (viewportWidth - roadWidth) / 2;
+      laneWidth = roadWidth / ACTIVE_LANE_COUNT;
+      if (player) {
+        player.x = laneCenter(player.lane);
+      }
+      for (const obstacle of obstacles) {
+        obstacle.x = laneCenter(obstacle.lane);
+      }
+      for (const pointItem of pointItems) {
+        pointItem.x = laneCenter(pointItem.lane);
+      }
+      for (const powerup of powerups) {
+        powerup.x = laneCenter(powerup.lane);
+      }
+    }
+
+    function laneCenter(lane) {
+      return roadLeft + laneWidth * (lane + 0.5);
+    }
+
+    function clamp(value, minimum, maximum) {
+      return Math.max(minimum, Math.min(maximum, value));
+    }
+
+    function resetRoundState() {
+      stopLoop();
+      speed = INITIAL_SPEED;
+      distance = 0;
+      points = 0;
+      spawnDistance = 0;
+      roadLineOffset = 0;
+      shieldActive = false;
+      slowTimeRemaining = 0;
+      obstacles = [];
+      pointItems = [];
+      powerups = [];
+      player = {
+        lane: Math.floor(ACTIVE_LANE_COUNT / 2),
+        targetLane: Math.floor(ACTIVE_LANE_COUNT / 2),
+        x: laneCenter(Math.floor(ACTIVE_LANE_COUNT / 2)),
+        y: 0,
+        width: PLAYER_WIDTH,
+        height: PLAYER_HEIGHT
+      };
+      updatePlayerPosition();
+      updateHud();
+    }
+
+    function startMatch() {
+      ensureAudio();
+      twoPlayerMode = modeSelect.value === "two";
+      playerNames = {
+        one: playerOneName.value.trim() || "اللاعب الأول",
+        two: playerTwoName.value.trim() || "اللاعب الثاني"
+      };
+      currentTurn = 1;
+      turnScores = [];
+      startTurn();
+    }
+
+    function startTurn() {
+      resetRoundState();
+      isRunning = true;
+      lastFrameTime = null;
+      startOverlay.classList.add("is-hidden");
+      endOverlay.classList.add("is-hidden");
+      scheduleNextFrame();
+    }
+
+    function endRound() {
+      if (!isRunning) {
+        return;
+      }
+      isRunning = false;
+      stopLoop();
+      const currentScore = Math.floor(distance);
+      turnScores[currentTurn - 1] = currentScore;
+      saveScore(getCurrentPlayerName(), currentScore);
+      playEndSound();
+      finalDistance.textContent = formatDistance(currentScore);
+      finalBest.textContent = formatDistance(bestScore);
+      if (twoPlayerMode && currentTurn === 1) {
+        endEyebrow.textContent = `انتهى دور ${getCurrentPlayerName()}`;
+        endTitle.textContent = "الدور التالي";
+        endMessage.textContent = `${playerNames.two}، حان دورك. ستبدأ جولة جديدة من الصفر.`;
+        restartButton.textContent = "ابدأ دور اللاعب الثاني";
+      } else {
+        endEyebrow.textContent = "انتهت الجولة";
+        endTitle.textContent = "رحلة قوية";
+        endMessage.textContent = twoPlayerMode
+          ? `النتيجة المسجلة للاعبين: ${toArabicDigits(turnScores[0])} م و${toArabicDigits(turnScores[1])} م.`
+          : `أحسنت يا ${getCurrentPlayerName()}، حاول تحطيم أفضل نتيجة.`;
+        restartButton.textContent = "العودة إلى البداية";
+      }
+      updateHud();
+      renderLeaderboards();
+      endOverlay.classList.remove("is-hidden");
+    }
+
+    function handleEndButton() {
+      ensureAudio();
+      if (twoPlayerMode && currentTurn === 1) {
+        currentTurn = 2;
+        startTurn();
+        return;
+      }
+      endOverlay.classList.add("is-hidden");
+      startOverlay.classList.remove("is-hidden");
+      renderLeaderboards();
+    }
+
+    function stopLoop() {
+      if (animationFrameId !== null) {
+        cancelFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      lastFrameTime = null;
+    }
+
+    function scheduleNextFrame() {
+      if (!isRunning) {
+        return;
+      }
+      if (animationFrameId !== null) {
+        cancelFrame(animationFrameId);
+      }
+      animationFrameId = requestFrame(gameLoop);
+    }
+
+    function gameLoop(timestamp) {
+      animationFrameId = null;
+      if (!isRunning) {
+        return;
+      }
+      if (lastFrameTime === null) {
+        lastFrameTime = timestamp;
+      }
+      const rawDelta = (timestamp - lastFrameTime) / 1000;
+      const deltaSeconds = clamp(rawDelta, 0, MAX_DELTA_SECONDS);
+      lastFrameTime = timestamp;
+      updateGame(deltaSeconds);
+      drawGame();
+      if (isRunning) {
+        scheduleNextFrame();
+      }
+    }
+
+    function updateGame(deltaSeconds) {
+      speed = Math.min(MAX_SPEED, speed + ACCELERATION_RATE * deltaSeconds);
+      distance += speed * deltaSeconds * DISTANCE_SCALE;
+      roadLineOffset = (roadLineOffset + speed * deltaSeconds) % 96;
+      slowTimeRemaining = Math.max(0, slowTimeRemaining - deltaSeconds);
+      spawnDistance += speed * deltaSeconds;
+      while (spawnDistance >= ROW_SPACING) {
+        spawnDistance -= ROW_SPACING;
+        spawnObstacleRow();
+      }
+      updatePlayerPosition(deltaSeconds);
+      const obstacleSpeed = speed * (slowTimeRemaining > 0 ? SLOW_FACTOR : 1);
+      for (const obstacle of obstacles) {
+        obstacle.y += obstacleSpeed * deltaSeconds;
+      }
+      for (const pointItem of pointItems) {
+        pointItem.y += speed * deltaSeconds;
+      }
+      for (const powerup of powerups) {
+        powerup.y += speed * deltaSeconds;
+      }
+      obstacles = obstacles.filter((obstacle) => obstacle.y < viewportHeight + obstacle.height);
+      pointItems = pointItems.filter((pointItem) => pointItem.y < viewportHeight + pointItem.radius);
+      powerups = powerups.filter((powerup) => powerup.y < viewportHeight + powerup.radius);
+      collectPickups();
+      const collision = getCollidingObstacle();
+      if (collision) {
+        playCollisionSound();
+        if (shieldActive) {
+          shieldActive = false;
+          obstacles = obstacles.filter((obstacle) => obstacle !== collision);
+          playShieldSound();
+        } else {
+          endRound();
+        }
+      }
+      updateHud();
+    }
+
+    function updatePlayerPosition(deltaSeconds = 1) {
+      const response = Math.min(1, LANE_CHANGE_RESPONSE * deltaSeconds);
+      player.lane += (player.targetLane - player.lane) * response;
+      player.x = laneCenter(player.lane);
+      player.y = viewportHeight - Math.max(150, viewportHeight * 0.19);
+    }
+
+    function spawnObstacleRow() {
+      const blockedCount = randomInteger(1, ACTIVE_LANE_COUNT - 1);
+      const blockedLanes = new Set();
+      while (blockedLanes.size < blockedCount) {
+        blockedLanes.add(randomInteger(0, ACTIVE_LANE_COUNT - 1));
+      }
+      for (const lane of blockedLanes) {
+        obstacles.push({
+          lane,
+          x: laneCenter(lane),
+          y: -OBSTACLE_HEIGHT - 20,
+          width: OBSTACLE_WIDTH,
+          height: OBSTACLE_HEIGHT,
+          color: ["#f46d70", "#ffc857", "#9d8cff", "#45c5e6"][randomInteger(0, 3)]
+        });
+      }
+
+      const availableLanes = [];
+      for (let lane = 0; lane < ACTIVE_LANE_COUNT; lane += 1) {
+        if (!blockedLanes.has(lane)) {
+          availableLanes.push(lane);
+        }
+      }
+      const pickupLane = availableLanes[randomInteger(0, availableLanes.length - 1)];
+      const pickupRoll = Math.random();
+      if (pickupRoll < 0.16) {
+        powerups.push({
+          lane: pickupLane,
+          x: laneCenter(pickupLane),
+          y: -PICKUP_RADIUS - 24,
+          radius: PICKUP_RADIUS,
+          type: Math.random() < 0.5 ? "shield" : "slow"
+        });
+      } else if (pickupRoll < 0.8) {
+        pointItems.push({
+          lane: pickupLane,
+          x: laneCenter(pickupLane),
+          y: -PICKUP_RADIUS - 24,
+          radius: PICKUP_RADIUS
+        });
+      }
+    }
+
+    function randomInteger(minimum, maximum) {
+      return Math.floor(Math.random() * (maximum - minimum + 1)) + minimum;
+    }
+
+    function collectPickups() {
+      pointItems = pointItems.filter((pointItem) => {
+        if (!isPickupCollected(pointItem.x, pointItem.y, pointItem.radius)) {
+          return true;
+        }
+        points += 1;
+        playCollectSound();
+        return false;
+      });
+
+      powerups = powerups.filter((powerup) => {
+        if (!isPickupCollected(powerup.x, powerup.y, powerup.radius)) {
+          return true;
+        }
+        if (powerup.type === "shield") {
+          shieldActive = true;
+        } else {
+          slowTimeRemaining = POWERUP_DURATION;
+        }
+        playPowerupSound();
+        return false;
+      });
+    }
+
+    function isPickupCollected(x, y, radius) {
+      const horizontalDistance = x - player.x;
+      const verticalDistance = y - player.y;
+      return Math.hypot(horizontalDistance, verticalDistance) < radius + 27;
+    }
+
+    function getPlayerHitbox() {
+      return {
+        left: player.x - player.width / 2 + 8,
+        right: player.x + player.width / 2 - 8,
+        top: player.y - player.height / 2 + 11,
+        bottom: player.y + player.height / 2 - 11
+      };
+    }
+
+    function getObstacleHitbox(obstacle) {
+      return {
+        left: obstacle.x - obstacle.width / 2 + 8,
+        right: obstacle.x + obstacle.width / 2 - 8,
+        top: obstacle.y - obstacle.height / 2 + 12,
+        bottom: obstacle.y + obstacle.height / 2 - 12
+      };
+    }
+
+    function getCollidingObstacle() {
+      const playerBox = getPlayerHitbox();
+      return obstacles.find((obstacle) => {
+        const obstacleBox = getObstacleHitbox(obstacle);
+        return (
+          playerBox.left < obstacleBox.right &&
+          playerBox.right > obstacleBox.left &&
+          playerBox.top < obstacleBox.bottom &&
+          playerBox.bottom > obstacleBox.top
+        );
+      });
+    }
+
+    function drawGame() {
+      context.clearRect(0, 0, viewportWidth, viewportHeight);
+      drawBackground();
+      drawRoad();
+      for (const pointItem of pointItems) {
+        drawPointItem(pointItem);
+      }
+      for (const powerup of powerups) {
+        drawPowerup(powerup);
+      }
+      for (const obstacle of obstacles) {
+        drawCar(obstacle.x, obstacle.y, obstacle.width, obstacle.height, obstacle.color, false);
+      }
+      drawCar(player.x, player.y, player.width, player.height, "#55e2bd", true);
+    }
+
+    function drawPointItem(pointItem) {
+      context.save();
+      context.translate(pointItem.x, pointItem.y);
+      context.shadowColor = "rgba(255, 200, 87, 0.75)";
+      context.shadowBlur = 18;
+      context.fillStyle = "#ffc857";
+      context.beginPath();
+      context.arc(0, 0, pointItem.radius, 0, Math.PI * 2);
+      context.fill();
+      context.shadowColor = "transparent";
+      context.fillStyle = "#fff1b8";
+      context.beginPath();
+      context.arc(-4, -4, 3, 0, Math.PI * 2);
+      context.fill();
+      context.restore();
+    }
+
+    function drawPowerup(powerup) {
+      const isShield = powerup.type === "shield";
+      context.save();
+      context.translate(powerup.x, powerup.y);
+      context.rotate(Math.PI / 4);
+      context.shadowColor = isShield ? "rgba(84, 225, 190, 0.85)" : "rgba(180, 146, 255, 0.85)";
+      context.shadowBlur = 18;
+      context.fillStyle = isShield ? "#54e1be" : "#b492ff";
+      roundedRectPath(-powerup.radius, -powerup.radius, powerup.radius * 2, powerup.radius * 2, 5);
+      context.fill();
+      context.rotate(-Math.PI / 4);
+      context.fillStyle = "#102b3d";
+      context.font = "900 15px Arial";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(isShield ? "S" : "T", 0, 1);
+      context.restore();
+    }
+
+    function drawBackground() {
+      const skyGradient = context.createLinearGradient(0, 0, 0, viewportHeight);
+      skyGradient.addColorStop(0, "#102b3d");
+      skyGradient.addColorStop(0.47, "#0b1b2c");
+      skyGradient.addColorStop(1, "#07111f");
+      context.fillStyle = skyGradient;
+      context.fillRect(0, 0, viewportWidth, viewportHeight);
+
+      context.fillStyle = "rgba(84, 225, 190, 0.08)";
+      context.beginPath();
+      context.arc(viewportWidth * 0.18, viewportHeight * 0.18, 72, 0, Math.PI * 2);
+      context.arc(viewportWidth * 0.82, viewportHeight * 0.24, 110, 0, Math.PI * 2);
+      context.fill();
+    }
+
+    function drawRoad() {
+      const roadGradient = context.createLinearGradient(roadLeft, 0, roadLeft + roadWidth, 0);
+      roadGradient.addColorStop(0, "#1b2d3b");
+      roadGradient.addColorStop(0.5, "#253b4c");
+      roadGradient.addColorStop(1, "#1b2d3b");
+      context.fillStyle = roadGradient;
+      context.fillRect(roadLeft, 0, roadWidth, viewportHeight);
+
+      context.fillStyle = "#d8b86a";
+      context.fillRect(roadLeft - 4, 0, 4, viewportHeight);
+      context.fillRect(roadLeft + roadWidth, 0, 4, viewportHeight);
+
+      context.fillStyle = "rgba(255, 255, 255, 0.34)";
+      for (let lane = 1; lane < ACTIVE_LANE_COUNT; lane += 1) {
+        const lineX = roadLeft + laneWidth * lane - 2;
+        for (let y = -96 + roadLineOffset; y < viewportHeight + 96; y += 96) {
+          context.fillRect(lineX, y, 4, 48);
+        }
+      }
+
+      const roadGlow = context.createLinearGradient(0, 0, 0, viewportHeight);
+      roadGlow.addColorStop(0, "rgba(84, 225, 190, 0.04)");
+      roadGlow.addColorStop(0.65, "rgba(84, 225, 190, 0)");
+      roadGlow.addColorStop(1, "rgba(0, 0, 0, 0.2)");
+      context.fillStyle = roadGlow;
+      context.fillRect(roadLeft, 0, roadWidth, viewportHeight);
+    }
+
+    function drawCar(x, y, width, height, color, isPlayer) {
+      context.save();
+      context.translate(x, y);
+
+      context.shadowColor = isPlayer ? "rgba(84, 225, 190, 0.45)" : "rgba(0, 0, 0, 0.4)";
+      context.shadowBlur = isPlayer ? 22 : 13;
+      context.shadowOffsetY = 8;
+      roundedRectPath(-width / 2, -height / 2, width, height, 13);
+      context.fillStyle = color;
+      context.fill();
+
+      context.shadowColor = "transparent";
+      roundedRectPath(-width * 0.31, -height * 0.29, width * 0.62, height * 0.31, 8);
+      context.fillStyle = isPlayer ? "#143f4e" : "#273848";
+      context.fill();
+
+      roundedRectPath(-width * 0.23, -height * 0.24, width * 0.46, height * 0.12, 4);
+      context.fillStyle = "rgba(221, 249, 255, 0.46)";
+      context.fill();
+
+      context.fillStyle = isPlayer ? "#f6fff2" : "#ffe5a4";
+      context.fillRect(-width * 0.31, -height * 0.44, width * 0.2, 5);
+      context.fillRect(width * 0.11, -height * 0.44, width * 0.2, 5);
+
+      context.fillStyle = isPlayer ? "#ff6175" : "#ee5260";
+      context.fillRect(-width * 0.31, height * 0.39, width * 0.2, 5);
+      context.fillRect(width * 0.11, height * 0.39, width * 0.2, 5);
+
+      context.fillStyle = "#091522";
+      context.fillRect(-width / 2 - 3, -height * 0.27, 6, height * 0.2);
+      context.fillRect(width / 2 - 3, -height * 0.27, 6, height * 0.2);
+      context.fillRect(-width / 2 - 3, height * 0.11, 6, height * 0.2);
+      context.fillRect(width / 2 - 3, height * 0.11, 6, height * 0.2);
+
+      if (isPlayer) {
+        context.fillStyle = "rgba(255, 255, 255, 0.28)";
+        context.fillRect(-2, -height * 0.41, 4, height * 0.82);
+      }
+      context.restore();
+    }
+
+    function roundedRectPath(x, y, width, height, radius) {
+      const safeRadius = Math.min(radius, width / 2, height / 2);
+      context.beginPath();
+      context.moveTo(x + safeRadius, y);
+      context.arcTo(x + width, y, x + width, y + height, safeRadius);
+      context.arcTo(x + width, y + height, x, y + height, safeRadius);
+      context.arcTo(x, y + height, x, y, safeRadius);
+      context.arcTo(x, y, x + width, y, safeRadius);
+      context.closePath();
+    }
+
+    function changeLane(direction) {
+      if (!isRunning) {
+        return;
+      }
+      player.targetLane = clamp(
+        player.targetLane + direction,
+        0,
+        ACTIVE_LANE_COUNT - 1
+      );
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        changeLane(-1);
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        changeLane(1);
+      }
+    }
+
+    function handleTouchStart(event) {
+      const firstTouch = event.changedTouches[0];
+      touchStartX = firstTouch.clientX;
+      touchStartY = firstTouch.clientY;
+    }
+
+    function handleTouchEnd(event) {
+      if (touchStartX === null || touchStartY === null) {
+        return;
+      }
+      const lastTouch = event.changedTouches[0];
+      const deltaX = lastTouch.clientX - touchStartX;
+      const deltaY = lastTouch.clientY - touchStartY;
+      touchStartX = null;
+      touchStartY = null;
+      if (Math.abs(deltaX) < 30 || Math.abs(deltaX) < Math.abs(deltaY)) {
+        return;
+      }
+      changeLane(deltaX > 0 ? 1 : -1);
+    }
+
+    function updateModeFields() {
+      playerTwoField.classList.toggle("is-hidden", modeSelect.value !== "two");
+    }
+
+    function ensureAudio() {
+      if (audioContext === null) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          return;
+        }
+        try {
+          audioContext = new AudioContextClass();
+        } catch (error) {
+          audioContext = null;
+          return;
+        }
+      }
+      if (audioContext.state === "suspended") {
+        const resumeResult = audioContext.resume();
+        if (resumeResult && typeof resumeResult.catch === "function") {
+          resumeResult.catch(() => {});
+        }
+      }
+    }
+
+    function playTone(frequency, duration, type, volume, delay = 0) {
+      if (!audioContext) {
+        return;
+      }
+      const startTime = audioContext.currentTime + delay;
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, startTime);
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.exponentialRampToValueAtTime(volume, startTime + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration + 0.02);
+    }
+
+    function playCollisionSound() {
+      playTone(105, 0.18, "sawtooth", 0.11);
+      playTone(62, 0.28, "square", 0.08, 0.05);
+    }
+
+    function playCollectSound() {
+      playTone(650, 0.09, "sine", 0.06);
+      playTone(920, 0.13, "sine", 0.05, 0.07);
+    }
+
+    function playPowerupSound() {
+      playTone(330, 0.1, "triangle", 0.06);
+      playTone(520, 0.12, "triangle", 0.06, 0.08);
+      playTone(740, 0.15, "triangle", 0.05, 0.16);
+    }
+
+    function playShieldSound() {
+      playTone(180, 0.08, "square", 0.06);
+      playTone(280, 0.12, "square", 0.05, 0.07);
+    }
+
+    function playEndSound() {
+      playTone(420, 0.13, "triangle", 0.06);
+      playTone(300, 0.17, "triangle", 0.05, 0.12);
+      playTone(180, 0.24, "sine", 0.05, 0.27);
+    }
+
+    startButton.addEventListener("click", startMatch);
+    restartButton.addEventListener("click", handleEndButton);
+    modeSelect.addEventListener("change", updateModeFields);
+    leftButton.addEventListener("click", () => changeLane(-1));
+    rightButton.addEventListener("click", () => changeLane(1));
+    document.addEventListener("keydown", handleKeyDown, { passive: false });
+    gameShell.addEventListener("touchstart", handleTouchStart, { passive: true });
+    gameShell.addEventListener("touchend", handleTouchEnd, { passive: true });
+    window.addEventListener("resize", resizeCanvas, { passive: true });
+
+    resizeCanvas();
+    resetRoundState();
+    updateModeFields();
+    renderLeaderboards();
+    drawGame();
+  </script>
+</body>
+</html>
